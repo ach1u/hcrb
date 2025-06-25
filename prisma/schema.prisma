@@ -1,0 +1,473 @@
+// Health Carousel Resume Builder Database Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  role          UserRole  @default(CANDIDATE)
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  profile       Profile?
+  createdResumes Resume[] @relation("ResumeCreator")
+  approvals     ResumeApproval[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model Profile {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Personal Information
+  middleName        String?
+  phone             String?
+  dateOfBirth       DateTime?
+  placeOfBirth      String?
+  nationality       String?
+  maritalStatus     MaritalStatus?
+  
+  // Address Information
+  currentAddress    Json? // Address object
+  permanentAddress  Json? // Address object
+  
+  // Professional Information
+  licenseNumber     String?
+  licenseState      String?
+  licenseExpiry     DateTime?
+  yearsOfExperience Int?
+  
+  // Status tracking
+  profileStatus     ProfileStatus @default(INCOMPLETE)
+  lastUpdated       DateTime      @default(now())
+  completionScore   Int           @default(0)
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  employmentHistory EmploymentRecord[]
+  education         Education[]
+  certifications    Certification[]
+  skills            ProfileSkill[]
+  specialties       ProfileSpecialty[]
+  visaHistory       VisaHistory[]
+  residenceHistory  ResidenceHistory[]
+  familyMembers     FamilyMember[]
+  resumes           Resume[]
+  documents         Document[]
+
+  @@map("profiles")
+}
+
+model EmploymentRecord {
+  id                String    @id @default(uuid())
+  profileId         String
+  profile           Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  employerName      String
+  jobTitle          String
+  department        String?
+  location          String?
+  startDate         DateTime
+  endDate           DateTime?
+  isCurrentJob      Boolean   @default(false)
+  
+  // Job Details
+  hoursPerWeek      Int?
+  salary            Decimal?
+  responsibilities  String[]
+  achievements      String[]
+  reasonForLeaving  String?
+  
+  // Contact Information
+  supervisorName    String?
+  supervisorPhone   String?
+  supervisorEmail   String?
+  
+  // Validation
+  isVerified        Boolean   @default(false)
+  verificationNotes String?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("employment_records")
+}
+
+model Education {
+  id              String    @id @default(uuid())
+  profileId       String
+  profile         Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  institutionName String
+  degree          String
+  fieldOfStudy    String?
+  startDate       DateTime?
+  endDate         DateTime?
+  isCompleted     Boolean   @default(true)
+  gpa             Decimal?
+  location        String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("education")
+}
+
+model Certification {
+  id              String    @id @default(uuid())
+  profileId       String
+  profile         Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  name            String
+  issuingOrg      String
+  issueDate       DateTime?
+  expiryDate      DateTime?
+  credentialId    String?
+  verificationUrl String?
+  isActive        Boolean   @default(true)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("certifications")
+}
+
+model Skill {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  category    String?
+  keywords    String[]
+  description String?
+  
+  // Relations
+  profiles    ProfileSkill[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("skills")
+}
+
+model ProfileSkill {
+  id           String    @id @default(uuid())
+  profileId    String
+  skillId      String
+  proficiency  Int?      // 1-5 scale
+  yearsExp     Int?
+  isEndorsed   Boolean   @default(false)
+  
+  profile      Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skill        Skill     @relation(fields: [skillId], references: [id])
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([profileId, skillId])
+  @@map("profile_skills")
+}
+
+model Specialty {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  category    String?
+  keywords    String[]
+  description String?
+  
+  // Relations
+  profiles    ProfileSpecialty[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("specialties")
+}
+
+model ProfileSpecialty {
+  id          String    @id @default(uuid())
+  profileId   String
+  specialtyId String
+  yearsExp    Int?
+  isPrimary   Boolean   @default(false)
+  
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  specialty   Specialty @relation(fields: [specialtyId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([profileId, specialtyId])
+  @@map("profile_specialties")
+}
+
+model VisaHistory {
+  id          String    @id @default(uuid())
+  profileId   String
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  visaType    String
+  country     String
+  issueDate   DateTime?
+  expiryDate  DateTime?
+  status      VisaStatus
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("visa_history")
+}
+
+model ResidenceHistory {
+  id          String    @id @default(uuid())
+  profileId   String
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  country     String
+  state       String?
+  city        String?
+  startDate   DateTime
+  endDate     DateTime?
+  isCurrent   Boolean   @default(false)
+  address     Json?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("residence_history")
+}
+
+model FamilyMember {
+  id            String    @id @default(uuid())
+  profileId     String
+  profile       Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  relationship  String
+  firstName     String
+  lastName      String?
+  dateOfBirth   DateTime?
+  nationality   String?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("family_members")
+}
+
+model ResumeTemplate {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  category    String?
+  templateUrl String
+  previewUrl  String?
+  isActive    Boolean   @default(true)
+  
+  // Template Configuration
+  fields      Json      // Available fields and their configurations
+  styles      Json      // Styling options
+  
+  // Relations
+  resumes     Resume[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("resume_templates")
+}
+
+model Resume {
+  id              String         @id @default(uuid())
+  profileId       String
+  templateId      String
+  jobPostingId    String?
+  
+  // Resume Content
+  title           String?
+  sizzle          String?        // AI-generated summary
+  customizations  Json?          // Custom fields and overrides
+  
+  // File Information
+  fileUrl         String?
+  fileName        String?
+  fileSize        Int?
+  
+  // Status and Workflow
+  status          ResumeStatus   @default(DRAFT)
+  version         Int            @default(1)
+  isLatest        Boolean        @default(true)
+  
+  // Metadata
+  createdBy       String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  profile         Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  template        ResumeTemplate @relation(fields: [templateId], references: [id])
+  jobPosting      JobPosting?    @relation(fields: [jobPostingId], references: [id])
+  creator         User           @relation("ResumeCreator", fields: [createdBy], references: [id])
+  approvals       ResumeApproval[]
+  
+  @@map("resumes")
+}
+
+model JobPosting {
+  id              String    @id @default(uuid())
+  title           String
+  facilityName    String
+  location        String?
+  description     String?
+  requirements    String[]
+  requiredSkills  String[]
+  preferredSkills String[]
+  salaryRange     String?
+  benefits        String[]
+  
+  isActive        Boolean   @default(true)
+  postedDate      DateTime  @default(now())
+  expiryDate      DateTime?
+  
+  // Relations
+  resumes         Resume[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("job_postings")
+}
+
+model ResumeApproval {
+  id          String         @id @default(uuid())
+  resumeId    String
+  approverId  String
+  role        UserRole
+  status      ApprovalStatus
+  comments    String?
+  approvedAt  DateTime?
+  
+  resume      Resume         @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  approver    User           @relation(fields: [approverId], references: [id])
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([resumeId, approverId, role])
+  @@map("resume_approvals")
+}
+
+model Document {
+  id          String      @id @default(uuid())
+  profileId   String
+  profile     Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  name        String
+  type        DocumentType
+  fileUrl     String
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  
+  // Metadata
+  uploadedBy  String
+  uploadedAt  DateTime    @default(now())
+  isVerified  Boolean     @default(false)
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("documents")
+}
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  userId      String?
+  action      String
+  resource    String
+  resourceId  String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  
+  user        User?     @relation(fields: [userId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+
+  @@map("audit_logs")
+}
+
+// Enums
+enum UserRole {
+  CANDIDATE
+  ACCOUNT_MANAGER
+  COMPLIANCE
+  ADMIN
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+  SEPARATED
+}
+
+enum ProfileStatus {
+  INCOMPLETE
+  COMPLETE
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum VisaStatus {
+  ACTIVE
+  EXPIRED
+  PENDING
+  DENIED
+}
+
+enum ResumeStatus {
+  DRAFT
+  PENDING_CANDIDATE_REVIEW
+  CANDIDATE_APPROVED
+  PENDING_AM_REVIEW
+  AM_APPROVED
+  PENDING_COMPLIANCE_REVIEW
+  COMPLIANCE_APPROVED
+  READY_FOR_SUBMISSION
+  REJECTED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+enum DocumentType {
+  RESUME
+  COVER_LETTER
+  LICENSE
+  CERTIFICATION
+  TRANSCRIPT
+  REFERENCE_LETTER
+  IDENTIFICATION
+  OTHER
+}
